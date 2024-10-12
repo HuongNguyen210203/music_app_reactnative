@@ -6,32 +6,33 @@ import Sound from 'react-native-sound';
 Sound.setCategory('Playback');
 
 const MusicPlayer = ({ route }) => {
-    const { title, artist, audioUrl } = route.params;
-
+    const { title, audioUrl } = route.params;
     let sound;
 
     useEffect(() => {
-        // Load the sound
+        // Tải và phát nhạc từ URL Firebase Storage
         sound = new Sound(audioUrl, null, (error) => {
             if (error) {
                 console.log('Failed to load sound', error);
+                return;
             }
         });
 
         return () => {
-            // Cleanup on unmount
             if (sound) {
-                sound.release();
+                sound.release(); // Giải phóng tài nguyên khi component bị hủy
             }
         };
     }, [audioUrl]);
 
     const playMusic = () => {
-        sound.play((success) => {
-            if (!success) {
-                console.log('Playback failed');
-            }
-        });
+        if (sound) {
+            sound.play((success) => {
+                if (!success) {
+                    console.log('Playback failed');
+                }
+            });
+        }
     };
 
     const stopMusic = () => {
@@ -43,26 +44,25 @@ const MusicPlayer = ({ route }) => {
     return (
         <View style={styles.container}>
             <Text style={styles.title}>{title}</Text>
-            <Text style={styles.artist}>{artist}</Text>
             <Button title="Play" onPress={playMusic} />
             <Button title="Stop" onPress={stopMusic} />
         </View>
     );
 };
 
+// Định nghĩa styles
 const styles = StyleSheet.create({
     container: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: '#fff', // Nền trắng
     },
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-    },
-    artist: {
-        fontSize: 18,
         marginBottom: 20,
+        color: '#333', // Màu chữ tối
     },
 });
 

@@ -3,6 +3,7 @@ import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import Login from '../MusicApp/android/app/src/screens/Login';
 import List from '../MusicApp/android/app/src/screens/List';
 import Details from '../MusicApp/android/app/src/screens/Details';
+import MusicPlayer from "./android/app/src/screens/MusicPlayer";
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { initializeApp } from 'firebase/app';  // Import Firebase
@@ -30,6 +31,7 @@ function InsideStackScreen() {
       <InsideStack.Navigator initialRouteName="List">
         <InsideStack.Screen name='List' component={List} options={{ headerShown: false }} />
         <InsideStack.Screen name='Details' component={Details} options={{ headerShown: false }} />
+        <InsideStack.Screen name='MusicPlayer' component={MusicPlayer} options={{ headerShown: false }} />
       </InsideStack.Navigator>
   );
 }

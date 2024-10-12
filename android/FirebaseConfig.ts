@@ -18,7 +18,7 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const FIREBASE_AUTH = getAuth(firebaseApp);
 const FIREBASE_DB = getFirestore(firebaseApp);
-const FIREBASE_STORAGE = getStorage(firebaseApp, "gs://reanatauth.appspot.com"); // Initialize Firebase Storage with custom bucket
+const FIREBASE_STORAGE = getStorage(firebaseApp); // Chỉ gọi một lần
 
 // Set persistence
 setPersistence(FIREBASE_AUTH, browserLocalPersistence)
@@ -31,3 +31,4 @@ setPersistence(FIREBASE_AUTH, browserLocalPersistence)
 
 // Export the initialized Firebase app and services
 export { firebaseApp, FIREBASE_AUTH, FIREBASE_DB, FIREBASE_STORAGE };
+

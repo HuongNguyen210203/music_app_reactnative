@@ -1,47 +1,52 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, Image, Modal, Button } from 'react-native';
-import { FIREBASE_AUTH, firestore } from '../../../FirebaseConfig'; // Adjust your Firebase import
+import { useEffect, useState } from 'react';
+import { FIREBASE_STORAGE } from "../../../FirebaseConfig";
+import { ref, listAll, getDownloadURL } from "firebase/storage";
+import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, Modal, Button } from 'react-native';
 
 const List = ({ navigation }) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [songs, setSongs] = useState([]);
 
     useEffect(() => {
+        // Fetch music list from Firebase Storage
         const fetchSongs = async () => {
+            const storageRef = ref(FIREBASE_STORAGE, 'Music'); // Path to the music folder in Firebase Storage
             try {
-                const snapshot = await firestore.collection('songs').get(); // Adjust 'songs' to your collection name
-                const songList = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data(),
-                }));
-                setSongs(songList);
+                const result = await listAll(storageRef); // Get list of music files
+                const songPromises = result.items.map(async (itemRef) => {
+                    const url = await getDownloadURL(itemRef); // Get file URL
+                    return {
+                        title: itemRef.name.split('.')[0], // Get the song title (remove file extension)
+                        url,
+                    };
+                });
+                const songsData = await Promise.all(songPromises);
+                setSongs(songsData);
             } catch (error) {
-                console.error('Error fetching songs: ', error);
+                console.error('Error fetching songs from Firebase Storage:', error);
             }
         };
 
         fetchSongs();
     }, []);
 
-    const handleSongPress = (songTitle, songArtist, audioUrl) => {
-        navigation.navigate('MusicPlayer', { title: songTitle, artist: songArtist, audioUrl });
+    const handleSongPress = (songTitle, audioUrl) => {
+        // Navigate to MusicPlayer page and pass song information
+        navigation.navigate('MusicPlayer', { title: songTitle, audioUrl });
     };
 
     return (
         <View style={styles.container}>
-            {/* Search Bar */}
             <View style={styles.searchContainer}>
                 <TextInput
                     style={styles.searchInput}
                     placeholder="Search music"
                 />
-                {/* Menu button */}
                 <TouchableOpacity style={styles.menuButton} onPress={() => setModalVisible(true)}>
                     <Text style={styles.menuText}>Menu</Text>
                 </TouchableOpacity>
             </View>
 
-            {/* Modal for hamburger menu */}
             <Modal
                 visible={modalVisible}
                 transparent={true}
@@ -50,55 +55,21 @@ const List = ({ navigation }) => {
             >
                 <View style={styles.modalContainer}>
                     <View style={styles.modalContent}>
-                        <Button title="Open Details" onPress={() => {
-                            navigation.navigate('Details');
-                            setModalVisible(false);
-                        }} />
-                        <Button title="Logout" onPress={() => {
-                            FIREBASE_AUTH.signOut();
-                            setModalVisible(false);
-                        }} />
                         <Button title="Close" onPress={() => setModalVisible(false)} />
                     </View>
                 </View>
             </Modal>
 
-            {/* Category Filters */}
-            <View style={styles.filtersContainer}>
-                {['All', 'Album', 'Playlist', 'Artist', 'Explore'].map((filter, index) => (
-                    <TouchableOpacity key={index} style={[styles.filterButton, index === 0 && styles.activeFilter]}>
-                        <Text style={index === 0 ? styles.activeFilterText : styles.filterText}>{filter}</Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
-
-            {/* Song List */}
             <ScrollView style={styles.songList}>
-                {songs.map((song) => (
-                    <TouchableOpacity key={song.id} style={styles.songItem} onPress={() => handleSongPress(song.title, song.artist, song.audioUrl)}>
+                {songs.map((song, index) => (
+                    <TouchableOpacity key={index} style={styles.songItem} onPress={() => handleSongPress(song.title, song.url)}>
                         <View style={styles.songDetails}>
                             <Text style={styles.songTitle}>{song.title}</Text>
-                            <Text style={styles.songArtist}>{song.artist}</Text>
                         </View>
-                        <Text style={styles.moreText}>More</Text>
+                        <Text style={styles.moreText}>Play</Text>
                     </TouchableOpacity>
                 ))}
             </ScrollView>
-
-            {/* Now Playing Bar */}
-            <View style={styles.nowPlaying}>
-                <Image
-                    style={styles.songThumbnail}
-                    source={{ uri: 'https://example.com/image.jpg' }} // Replace with actual image URL
-                />
-                <View style={styles.nowPlayingDetails}>
-                    <Text style={styles.nowPlayingTitle}>Mustafa Jaan E Rehmat Pe</Text>
-                    <Text style={styles.nowPlayingArtist}>Atif Aslam, Boss Menn</Text>
-                </View>
-                <TouchableOpacity style={styles.playPauseButton}>
-                    <Text style={styles.playPauseText}>Pause</Text>
-                </TouchableOpacity>
-            </View>
         </View>
     );
 };
@@ -128,26 +99,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#000',
     },
-    filtersContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-evenly',
-        paddingVertical: 10,
-        backgroundColor: '#fff',
-    },
-    filterButton: {
-        padding: 10,
-        borderRadius: 20,
-        backgroundColor: '#e6e6e6',
-    },
-    activeFilter: {
-        backgroundColor: '#f90',
-    },
-    filterText: {
-        color: '#000',
-    },
-    activeFilterText: {
-        color: '#fff',
-    },
     songList: {
         flex: 1,
         padding: 10,
@@ -168,44 +119,9 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#000',
     },
-    songArtist: {
-        fontSize: 14,
-        color: '#888',
-    },
     moreText: {
         fontSize: 16,
         color: '#888',
-    },
-    nowPlaying: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 10,
-        backgroundColor: '#f2f2f2',
-    },
-    songThumbnail: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        marginRight: 10,
-    },
-    nowPlayingDetails: {
-        flex: 1,
-    },
-    nowPlayingTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#000',
-    },
-    nowPlayingArtist: {
-        fontSize: 14,
-        color: '#888',
-    },
-    playPauseButton: {
-        padding: 10,
-    },
-    playPauseText: {
-        fontSize: 16,
-        color: '#f90',
     },
     modalContainer: {
         flex: 1,
