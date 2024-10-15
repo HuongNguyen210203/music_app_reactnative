@@ -4,7 +4,7 @@ import Slider from '@react-native-community/slider';
 import Sound from 'react-native-sound';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
-// Setting the audio category to playback for better audio experience
+// Thiết lập category cho âm thanh
 Sound.setCategory('Playback');
 
 const MusicPlayer = ({ route }) => {
@@ -13,7 +13,7 @@ const MusicPlayer = ({ route }) => {
     const [sound, setSound] = useState(null);
     const [currentPosition, setCurrentPosition] = useState(0);
     const [duration, setDuration] = useState(0);
-    const [isPlaying, setIsPlaying] = useState(false);
+    const [isPlaying, setIsPlaying] = useState(true); // Đặt mặc định là true để hiển thị icon pause
     const [volume, setVolume] = useState(1);
     const intervalRef = useRef(null);
 
@@ -25,6 +25,17 @@ const MusicPlayer = ({ route }) => {
             }
             setDuration(soundInstance.getDuration());
             setSound(soundInstance);
+            soundInstance.play(() => {
+                setIsPlaying(false);
+                setCurrentPosition(0);
+            });
+
+            // Cập nhật vị trí hiện tại của nhạc
+            intervalRef.current = setInterval(() => {
+                soundInstance.getCurrentTime((seconds) => {
+                    setCurrentPosition(seconds);
+                });
+            }, 1000);
         });
 
         return () => {
@@ -37,22 +48,11 @@ const MusicPlayer = ({ route }) => {
 
     const playMusic = () => {
         if (sound) {
-            sound.play((success) => {
-                if (success) {
-                    console.log('Finished playing');
-                    setIsPlaying(false);
-                    setCurrentPosition(0);
-                } else {
-                    console.log('Playback failed');
-                }
+            sound.play(() => {
+                setIsPlaying(false);
+                setCurrentPosition(0);
             });
             setIsPlaying(true);
-
-            intervalRef.current = setInterval(() => {
-                sound.getCurrentTime((seconds) => {
-                    setCurrentPosition(seconds);
-                });
-            }, 1000);
         }
     };
 
@@ -60,7 +60,14 @@ const MusicPlayer = ({ route }) => {
         if (sound && isPlaying) {
             sound.pause();
             setIsPlaying(false);
-            clearIntervalRef();
+        }
+    };
+
+    const handlePlayPause = () => {
+        if (isPlaying) {
+            pauseMusic();
+        } else {
+            playMusic();
         }
     };
 
@@ -128,7 +135,7 @@ const MusicPlayer = ({ route }) => {
 
             <View style={styles.controlButtons}>
                 <TouchableOpacity
-                    onPress={isPlaying ? pauseMusic : playMusic}
+                    onPress={handlePlayPause}
                     style={styles.playPauseButton}
                 >
                     <Icon name={isPlaying ? 'pause' : 'play'} size={24} color="#fff" />

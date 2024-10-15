@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FIREBASE_STORAGE, FIREBASE_AUTH } from "../../../FirebaseConfig";
 import { ref, listAll, getDownloadURL } from "firebase/storage";
 import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, Modal, Button, Alert } from 'react-native';
@@ -11,15 +11,14 @@ const List = ({ navigation }) => {
     const [songs, setSongs] = useState([]);
 
     useEffect(() => {
-        // Fetch music list from Firebase Storage
         const fetchSongs = async () => {
-            const storageRef = ref(FIREBASE_STORAGE, 'Music'); // Path to the music folder in Firebase Storage
+            const storageRef = ref(FIREBASE_STORAGE, 'Music');
             try {
-                const result = await listAll(storageRef); // Get list of music files
+                const result = await listAll(storageRef);
                 const songPromises = result.items.map(async (itemRef) => {
-                    const url = await getDownloadURL(itemRef); // Get file URL
+                    const url = await getDownloadURL(itemRef);
                     return {
-                        title: itemRef.name.split('.')[0], // Get the song title (remove file extension)
+                        title: itemRef.name.split('.')[0],
                         url,
                     };
                 });
@@ -34,7 +33,6 @@ const List = ({ navigation }) => {
     }, []);
 
     const handleSongPress = (songTitle, audioUrl) => {
-        // Navigate to MusicPlayer page and pass song information
         navigation.navigate('MusicPlayer', { title: songTitle, audioUrl });
     };
 
@@ -42,7 +40,7 @@ const List = ({ navigation }) => {
         try {
             await signOut(FIREBASE_AUTH);
             Alert.alert('Logged out successfully');
-            navigation.replace('SignIn'); // Navigate back to the Login screen
+            navigation.replace('SignIn');
         } catch (error) {
             Alert.alert('Error logging out', error.message);
         }
@@ -109,10 +107,6 @@ const styles = StyleSheet.create({
     menuButton: {
         marginLeft: 10,
     },
-    menuText: {
-        fontSize: 16,
-        color: '#000',
-    },
     songList: {
         flex: 1,
         padding: 10,
@@ -132,10 +126,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
         color: '#000',
-    },
-    moreText: {
-        fontSize: 16,
-        color: '#888',
     },
     modalContainer: {
         flex: 1,
