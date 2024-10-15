@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
-import { FIREBASE_STORAGE } from "../../../FirebaseConfig";
+import { FIREBASE_STORAGE, FIREBASE_AUTH } from "../../../FirebaseConfig";
 import { ref, listAll, getDownloadURL } from "firebase/storage";
-import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, Modal, Button } from 'react-native';
+import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, Modal, Button, Alert } from 'react-native';
+import { signOut } from 'firebase/auth';
+import Icon from 'react-native-vector-icons/FontAwesome5';
+import Icon2 from 'react-native-vector-icons/MaterialIcons';
 
 const List = ({ navigation }) => {
     const [modalVisible, setModalVisible] = useState(false);
@@ -35,6 +38,16 @@ const List = ({ navigation }) => {
         navigation.navigate('MusicPlayer', { title: songTitle, audioUrl });
     };
 
+    const handleLogOut = async () => {
+        try {
+            await signOut(FIREBASE_AUTH);
+            Alert.alert('Logged out successfully');
+            navigation.replace('SignIn'); // Navigate back to the Login screen
+        } catch (error) {
+            Alert.alert('Error logging out', error.message);
+        }
+    };
+
     return (
         <View style={styles.container}>
             <View style={styles.searchContainer}>
@@ -43,7 +56,7 @@ const List = ({ navigation }) => {
                     placeholder="Search music"
                 />
                 <TouchableOpacity style={styles.menuButton} onPress={() => setModalVisible(true)}>
-                    <Text style={styles.menuText}>Menu</Text>
+                    <Icon2 name="menu" size={25} color="#000" />
                 </TouchableOpacity>
             </View>
 
@@ -56,6 +69,7 @@ const List = ({ navigation }) => {
                 <View style={styles.modalContainer}>
                     <View style={styles.modalContent}>
                         <Button title="Close" onPress={() => setModalVisible(false)} />
+                        <Button title="Log Out" onPress={handleLogOut} />
                     </View>
                 </View>
             </Modal>
@@ -66,7 +80,7 @@ const List = ({ navigation }) => {
                         <View style={styles.songDetails}>
                             <Text style={styles.songTitle}>{song.title}</Text>
                         </View>
-                        <Text style={styles.moreText}>Play</Text>
+                        <Icon name="play-circle" size={20} color="#000" />
                     </TouchableOpacity>
                 ))}
             </ScrollView>

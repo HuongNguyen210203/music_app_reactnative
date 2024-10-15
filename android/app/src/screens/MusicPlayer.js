@@ -1,39 +1,40 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, Button, StyleSheet } from 'react-native';
-import Slider from '@react-native-community/slider'; // For progress and volume control
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import Slider from '@react-native-community/slider';
 import Sound from 'react-native-sound';
+import Icon from 'react-native-vector-icons/FontAwesome';
 
+// Setting the audio category to playback for better audio experience
 Sound.setCategory('Playback');
 
 const MusicPlayer = ({ route }) => {
-    const { title, audioUrl } = route.params;
+    const { title = 'Untitled', audioUrl = '' } = route?.params || {};
 
     const [sound, setSound] = useState(null);
-    const [currentPosition, setCurrentPosition] = useState(0); // Track the current position of the song
-    const [duration, setDuration] = useState(0); // Total duration of the song
-    const [isPlaying, setIsPlaying] = useState(false); // Track if the music is playing
-    const [volume, setVolume] = useState(1); // Volume level
+    const [currentPosition, setCurrentPosition] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [volume, setVolume] = useState(1);
+    const intervalRef = useRef(null);
 
     useEffect(() => {
-        // Load the sound when the component mounts
         const soundInstance = new Sound(audioUrl, null, (error) => {
             if (error) {
                 console.log('Failed to load sound', error);
                 return;
             }
-            setDuration(soundInstance.getDuration()); // Get the duration of the song
+            setDuration(soundInstance.getDuration());
             setSound(soundInstance);
         });
 
-        // Clean up when the component unmounts
         return () => {
             if (soundInstance) {
                 soundInstance.release();
             }
+            clearIntervalRef();
         };
     }, [audioUrl]);
 
-    // Play the music
     const playMusic = () => {
         if (sound) {
             sound.play((success) => {
@@ -47,37 +48,22 @@ const MusicPlayer = ({ route }) => {
             });
             setIsPlaying(true);
 
-            // Update the current position every second
-            const intervalId = setInterval(() => {
+            intervalRef.current = setInterval(() => {
                 sound.getCurrentTime((seconds) => {
                     setCurrentPosition(seconds);
                 });
             }, 1000);
-
-            // Clear the interval when the music finishes or is stopped
-            return () => clearInterval(intervalId);
         }
     };
 
-    // Pause the music
     const pauseMusic = () => {
         if (sound && isPlaying) {
             sound.pause();
             setIsPlaying(false);
+            clearIntervalRef();
         }
     };
 
-    // Stop the music
-    const stopMusic = () => {
-        if (sound) {
-            sound.stop(() => {
-                setIsPlaying(false);
-                setCurrentPosition(0);
-            });
-        }
-    };
-
-    // Seek the song to a new position
     const seekMusic = (value) => {
         if (sound) {
             sound.setCurrentTime(value);
@@ -85,7 +71,6 @@ const MusicPlayer = ({ route }) => {
         }
     };
 
-    // Adjust the volume
     const changeVolume = (value) => {
         setVolume(value);
         if (sound) {
@@ -93,24 +78,45 @@ const MusicPlayer = ({ route }) => {
         }
     };
 
-    // Format time for display (mm:ss)
+    const clearIntervalRef = () => {
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+        }
+    };
+
     const formatTime = (seconds) => {
         const mins = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
         return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
     };
 
+    const getVolumeIcon = () => {
+        if (volume === 0) {
+            return 'volume-off';
+        } else if (volume > 0 && volume <= 0.3) {
+            return 'volume-down';
+        } else if (volume > 0.3 && volume <= 0.6) {
+            return 'volume-down';
+        } else {
+            return 'volume-up';
+        }
+    };
+
+    if (!audioUrl) {
+        return <View style={styles.container}><Text>No audio source provided</Text></View>;
+    }
+
     return (
         <View style={styles.container}>
             <Text style={styles.title}>{title}</Text>
 
-            {/* Progress Bar */}
             <Slider
                 style={styles.progressSlider}
                 minimumValue={0}
                 maximumValue={duration}
                 value={currentPosition}
-                onSlidingComplete={seekMusic} // Seek to a new position
+                onSlidingComplete={seekMusic}
                 minimumTrackTintColor="#1DB954"
                 maximumTrackTintColor="#ccc"
                 thumbTintColor="#1DB954"
@@ -120,22 +126,28 @@ const MusicPlayer = ({ route }) => {
                 <Text style={styles.timeText}>{formatTime(duration)}</Text>
             </View>
 
-            {/* Play/Pause/Stop buttons */}
-            <Button title={isPlaying ? "Pause" : "Play"} onPress={isPlaying ? pauseMusic : playMusic} />
-            <Button title="Stop" onPress={stopMusic} />
+            <View style={styles.controlButtons}>
+                <TouchableOpacity
+                    onPress={isPlaying ? pauseMusic : playMusic}
+                    style={styles.playPauseButton}
+                >
+                    <Icon name={isPlaying ? 'pause' : 'play'} size={24} color="#fff" />
+                </TouchableOpacity>
+            </View>
 
-            {/* Volume Slider */}
-            <Text>Volume</Text>
-            <Slider
-                style={styles.volumeSlider}
-                minimumValue={0}
-                maximumValue={1}
-                value={volume}
-                onValueChange={changeVolume} // Adjust the volume
-                minimumTrackTintColor="#1DB954"
-                maximumTrackTintColor="#ccc"
-                thumbTintColor="#1DB954"
-            />
+            <View style={styles.volumeContainer}>
+                <Icon name={getVolumeIcon()} size={24} color="black" style={styles.volumeIcon} />
+                <Slider
+                    style={styles.volumeSlider}
+                    minimumValue={0}
+                    maximumValue={1}
+                    value={volume}
+                    onValueChange={changeVolume}
+                    minimumTrackTintColor="#1DB954"
+                    maximumTrackTintColor="#ccc"
+                    thumbTintColor="#1DB954"
+                />
+            </View>
         </View>
     );
 };
@@ -145,11 +157,13 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: '#f7f7f7',
         padding: 20,
     },
     title: {
-        fontSize: 24,
+        fontSize: 26,
         fontWeight: 'bold',
+        color: '#333',
         marginBottom: 20,
     },
     progressSlider: {
@@ -161,16 +175,36 @@ const styles = StyleSheet.create({
         width: '100%',
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 10,
+        marginBottom: 20,
     },
     timeText: {
         fontSize: 14,
-        color: '#333',
+        color: '#666',
+    },
+    controlButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        width: '100%',
+        marginBottom: 30,
+    },
+    playPauseButton: {
+        backgroundColor: '#1DB954',
+        padding: 15,
+        borderRadius: 50,
+        elevation: 3,
+    },
+    volumeContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        width: '100%',
+        marginBottom: 30,
+    },
+    volumeIcon: {
+        marginRight: 10,
     },
     volumeSlider: {
-        width: '100%',
+        flex: 1,
         height: 40,
-        marginTop: 20,
     },
 });
 
