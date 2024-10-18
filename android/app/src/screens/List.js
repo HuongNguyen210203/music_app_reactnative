@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { FIREBASE_STORAGE, FIREBASE_AUTH } from "../../../FirebaseConfig";
 import { ref, listAll, getDownloadURL } from "firebase/storage";
-import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, Modal, Button, Alert } from 'react-native';
+import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, Modal, Button } from 'react-native';
 import { signOut } from 'firebase/auth';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import Icon2 from 'react-native-vector-icons/MaterialIcons';
@@ -9,6 +9,7 @@ import Icon2 from 'react-native-vector-icons/MaterialIcons';
 const List = ({ navigation }) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [songs, setSongs] = useState([]);
+    const [searchQuery, setSearchQuery] = useState(''); // State for search query
 
     useEffect(() => {
         const fetchSongs = async () => {
@@ -39,12 +40,16 @@ const List = ({ navigation }) => {
     const handleLogOut = async () => {
         try {
             await signOut(FIREBASE_AUTH);
-            Alert.alert('Logged out successfully');
             navigation.replace('SignIn');
         } catch (error) {
-            Alert.alert('Error logging out', error.message);
+            console.error('Error logging out:', error.message);
         }
     };
+
+    // Filter songs based on the search query
+    const filteredSongs = songs.filter(song =>
+        song.title.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     return (
         <View style={styles.container}>
@@ -52,6 +57,8 @@ const List = ({ navigation }) => {
                 <TextInput
                     style={styles.searchInput}
                     placeholder="Search music"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery} // Update search query state
                 />
                 <TouchableOpacity style={styles.menuButton} onPress={() => setModalVisible(true)}>
                     <Icon2 name="menu" size={25} color="#000" />
@@ -73,7 +80,7 @@ const List = ({ navigation }) => {
             </Modal>
 
             <ScrollView style={styles.songList}>
-                {songs.map((song, index) => (
+                {filteredSongs.map((song, index) => (
                     <TouchableOpacity key={index} style={styles.songItem} onPress={() => handleSongPress(song.title, song.url)}>
                         <View style={styles.songDetails}>
                             <Text style={styles.songTitle}>{song.title}</Text>

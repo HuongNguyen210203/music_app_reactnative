@@ -12,10 +12,10 @@ const SignUp = ({ navigation }) => {
         try {
             const response = await createUserWithEmailAndPassword(auth, email, password);
             await sendEmailVerification(response.user);
-            Alert.alert('Check your email for verification');
+            // Alert.alert('Check your email for verification');
             navigation.navigate('SignIn'); // Navigate back to SignIn screen
         } catch (error) {
-            Alert.alert('Sign up failed', error.message);
+            // Alert.alert('Sign up failed', error.message);
         }
     };
 

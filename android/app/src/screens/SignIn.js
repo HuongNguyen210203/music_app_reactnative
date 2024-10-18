@@ -12,9 +12,9 @@ const SignIn = ({ navigation }) => {
         try {
             const response = await signInWithEmailAndPassword(auth, email, password);
             console.log(response);
-            Alert.alert('Sign in successful');
+            // Alert.alert('Sign in successful');
         } catch (error) {
-            Alert.alert('Sign in failed', error.message);
+            // Alert.alert('Sign in failed', error.message);
         }
     };
 
