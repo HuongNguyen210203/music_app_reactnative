@@ -1,95 +1,196 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Image } from 'react-native';
 import Slider from '@react-native-community/slider';
-import Sound from 'react-native-sound';
+import MusicService from '../services/MusicService';
+import { FIREBASE_STORAGE } from '../../../FirebaseConfig';
+import { ref, listAll, getDownloadURL } from 'firebase/storage';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
-// Thiết lập category cho âm thanh
-Sound.setCategory('Playback');
-
 const MusicPlayer = ({ route }) => {
-    const { title = 'Untitled', audioUrl = '' } = route?.params || {};
-
-    const [sound, setSound] = useState(null);
+    const { title: initialTitle = 'Untitled', audioUrl = '' } = route?.params || {};
+    const [images, setImages] = useState([]);
+    const [songs, setSongs] = useState([]);
+    const [currentTrackImage, setCurrentTrackImage] = useState('');
     const [currentPosition, setCurrentPosition] = useState(0);
     const [duration, setDuration] = useState(0);
-    const [isPlaying, setIsPlaying] = useState(true); // Đặt mặc định là true để hiển thị icon pause
+    const [isPlaying, setIsPlaying] = useState(false);
     const [volume, setVolume] = useState(1);
+    const [title, setTitle] = useState(initialTitle);
     const intervalRef = useRef(null);
 
-    useEffect(() => {
-        const soundInstance = new Sound(audioUrl, null, (error) => {
-            if (error) {
-                console.log('Failed to load sound', error);
-                return;
-            }
-            setDuration(soundInstance.getDuration());
-            setSound(soundInstance);
-            soundInstance.play(() => {
-                setIsPlaying(false);
-                setCurrentPosition(0);
-            });
+    // Rotation Animation setup
+    const rotateAnim = useRef(new Animated.Value(0)).current;
 
-            // Cập nhật vị trí hiện tại của nhạc
-            intervalRef.current = setInterval(() => {
-                soundInstance.getCurrentTime((seconds) => {
-                    setCurrentPosition(seconds);
-                });
-            }, 1000);
-        });
-
-        return () => {
-            if (soundInstance) {
-                soundInstance.release();
-            }
-            clearIntervalRef();
-        };
-    }, [audioUrl]);
-
-    const playMusic = () => {
-        if (sound) {
-            sound.play(() => {
-                setIsPlaying(false);
-                setCurrentPosition(0);
-            });
-            setIsPlaying(true);
-        }
+    // Rotation animation function
+    const startRotation = () => {
+        Animated.loop(
+            Animated.timing(rotateAnim, {
+                toValue: 1,
+                duration: 11000, // 8 seconds for a full rotation
+                useNativeDriver: true,
+            })
+        ).start();
     };
 
-    const pauseMusic = () => {
-        if (sound && isPlaying) {
-            sound.pause();
-            setIsPlaying(false);
+    // Stop rotation
+    const stopRotation = () => {
+        rotateAnim.stopAnimation();
+        rotateAnim.setValue(0); // Reset rotation to start
+    };
+
+    // Start or stop rotation based on play state
+    useEffect(() => {
+        if (isPlaying) {
+            startRotation();
+        } else {
+            stopRotation();
         }
+    }, [isPlaying]);
+
+    useEffect(() => {
+        const fetchSongsAndImages = async () => {
+            const storageRef = ref(FIREBASE_STORAGE, 'Music');
+            const imagesRef = ref(FIREBASE_STORAGE, 'Images');
+            try {
+                // Fetch Songs
+                const songResult = await listAll(storageRef);
+                const songPromises = songResult.items.map(async (itemRef) => {
+                    const url = await getDownloadURL(itemRef);
+                    return {
+                        title: itemRef.name.split('.')[0],
+                        url,
+                        author: 'HIEUTHUHAI',
+                    };
+                });
+                const songsData = await Promise.all(songPromises);
+                setSongs(songsData);
+                MusicService.initializeQueue(songsData);
+
+                // Fetch Images
+                const imageResult = await listAll(imagesRef);
+                const imagePromises = imageResult.items.map(async (itemRef) => {
+                    const url = await getDownloadURL(itemRef);
+                    return { title: itemRef.name.split('.')[0], url };
+                });
+                const imagesData = await Promise.all(imagePromises);
+                setImages(imagesData);
+
+                const matchedImage = getImageForSong(initialTitle);
+                setCurrentTrackImage(matchedImage);
+            } catch (error) {
+                console.error('Error fetching data from Firebase Storage:', error);
+            }
+        };
+
+        fetchSongsAndImages();
+    }, [initialTitle]);
+
+    const normalizeString = (str) => {
+        return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    };
+
+    const getImageForSong = (songTitle) => {
+        const normalizedSongTitle = normalizeString(songTitle);
+        let bestMatch = null;
+        let maxMatchingChars = 0;
+
+        images.forEach((image) => {
+            const normalizedImageTitle = normalizeString(image.title);
+            let matchingChars = 0;
+
+            for (let i = 0; i < Math.min(normalizedSongTitle.length, normalizedImageTitle.length); i++) {
+                if (normalizedSongTitle[i] === normalizedImageTitle[i]) {
+                    matchingChars++;
+                } else {
+                    break;
+                }
+            }
+
+            if (matchingChars > maxMatchingChars) {
+                maxMatchingChars = matchingChars;
+                bestMatch = image;
+            }
+        });
+
+        return bestMatch ? bestMatch.url : null;
+    };
+
+    useEffect(() => {
+        if (audioUrl) {
+            loadTrack(audioUrl, initialTitle);
+        }
+
+        return () => {
+            MusicService.release();
+            clearInterval(intervalRef.current); // clear the interval when unmounting
+        };
+    }, [audioUrl, initialTitle]);
+
+    const loadTrack = async (url, trackTitle) => {
+        setCurrentPosition(0);
+        setIsPlaying(true);
+
+        const matchedImage = getImageForSong(trackTitle);
+        setCurrentTrackImage(matchedImage);
+        setTitle(trackTitle);
+
+        try {
+            const audioDuration = await MusicService.load(url);
+            setDuration(audioDuration);
+        } catch (error) {
+            console.error('Error loading track:', error);
+        }
+
+        MusicService.play();
+        clearInterval(intervalRef.current);
+        intervalRef.current = setInterval(() => {
+            MusicService.getCurrentTime((seconds) => {
+                setCurrentPosition(seconds);
+            });
+        }, 1000);
     };
 
     const handlePlayPause = () => {
         if (isPlaying) {
-            pauseMusic();
+            MusicService.pause();
         } else {
-            playMusic();
+            MusicService.play(() => setIsPlaying(false));
+        }
+        setIsPlaying(!isPlaying);
+    };
+
+    const handleNextTrack = async () => {
+        MusicService.stop();
+        MusicService.nextTrack();
+        const nextTrack = MusicService.getCurrentTrackInfo();
+
+        if (nextTrack) {
+            await loadTrack(nextTrack.url, nextTrack.title);
+            const matchedImage = getImageForSong(nextTrack.title);
+            setCurrentTrackImage(matchedImage);
+        }
+    };
+
+    const handlePreviousTrack = async () => {
+        MusicService.stop();
+        MusicService.previousTrack();
+        const previousTrack = MusicService.getCurrentTrackInfo();
+
+        if (previousTrack) {
+            await loadTrack(previousTrack.url, previousTrack.title);
+            const matchedImage = getImageForSong(previousTrack.title);
+            setCurrentTrackImage(matchedImage);
         }
     };
 
     const seekMusic = (value) => {
-        if (sound) {
-            sound.setCurrentTime(value);
-            setCurrentPosition(value);
-        }
+        MusicService.seekTo(value);
+        setCurrentPosition(value);
     };
 
     const changeVolume = (value) => {
         setVolume(value);
-        if (sound) {
-            sound.setVolume(value);
-        }
-    };
-
-    const clearIntervalRef = () => {
-        if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
-        }
+        MusicService.setVolume(value);
     };
 
     const formatTime = (seconds) => {
@@ -98,24 +199,20 @@ const MusicPlayer = ({ route }) => {
         return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
     };
 
-    const getVolumeIcon = () => {
-        if (volume === 0) {
-            return 'volume-off';
-        } else if (volume > 0 && volume <= 0.3) {
-            return 'volume-down';
-        } else if (volume > 0.3 && volume <= 0.6) {
-            return 'volume-down';
-        } else {
-            return 'volume-up';
-        }
-    };
-
-    if (!audioUrl) {
-        return <View style={styles.container}><Text>No audio source provided</Text></View>;
-    }
+    // Rotation interpolation
+    const rotateInterpolate = rotateAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['0deg', '360deg'],
+    });
 
     return (
         <View style={styles.container}>
+            {currentTrackImage ? (
+                <Animated.Image
+                    source={{ uri: currentTrackImage }}
+                    style={[styles.trackImage, { transform: [{ rotate: rotateInterpolate }] }]}
+                />
+            ) : null}
             <Text style={styles.title}>{title}</Text>
 
             <Slider
@@ -124,9 +221,9 @@ const MusicPlayer = ({ route }) => {
                 maximumValue={duration}
                 value={currentPosition}
                 onSlidingComplete={seekMusic}
-                minimumTrackTintColor="#1DB954"
+                minimumTrackTintColor="#FFA500"
                 maximumTrackTintColor="#ccc"
-                thumbTintColor="#1DB954"
+                thumbTintColor="#FFA500"
             />
             <View style={styles.timeContainer}>
                 <Text style={styles.timeText}>{formatTime(currentPosition)}</Text>
@@ -134,27 +231,27 @@ const MusicPlayer = ({ route }) => {
             </View>
 
             <View style={styles.controlButtons}>
-                <TouchableOpacity
-                    onPress={handlePlayPause}
-                    style={styles.playPauseButton}
-                >
-                    <Icon name={isPlaying ? 'pause' : 'play'} size={24} color="#fff" />
+                <TouchableOpacity onPress={handlePreviousTrack} style={styles.controlButton}>
+                    <Icon name="step-backward" size={30} color="#FFA500" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handlePlayPause} style={styles.controlButton}>
+                    <Icon name={isPlaying ? 'pause' : 'play'} size={30} color="#FFA500" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleNextTrack} style={styles.controlButton}>
+                    <Icon name="step-forward" size={30} color="#FFA500" />
                 </TouchableOpacity>
             </View>
 
-            <View style={styles.volumeContainer}>
-                <Icon name={getVolumeIcon()} size={24} color="black" style={styles.volumeIcon} />
-                <Slider
-                    style={styles.volumeSlider}
-                    minimumValue={0}
-                    maximumValue={1}
-                    value={volume}
-                    onValueChange={changeVolume}
-                    minimumTrackTintColor="#1DB954"
-                    maximumTrackTintColor="#ccc"
-                    thumbTintColor="#1DB954"
-                />
-            </View>
+            <Slider
+                style={styles.volumeSlider}
+                minimumValue={0}
+                maximumValue={1}
+                value={volume}
+                onValueChange={changeVolume}
+                minimumTrackTintColor="#FFA500"
+                maximumTrackTintColor="#ccc"
+                thumbTintColor="#FFA500"
+            />
         </View>
     );
 };
@@ -164,55 +261,46 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#f7f7f7',
-        padding: 20,
+        backgroundColor: '#121212',
+    },
+    trackImage: {
+        width: 250,
+        height: 250,
+        borderRadius: 125, // make the image circular
+        marginBottom: 20,
     },
     title: {
-        fontSize: 26,
-        fontWeight: 'bold',
-        color: '#333',
-        marginBottom: 20,
+        fontSize: 22,
+        color: '#FFF',
+        marginBottom: 10,
     },
     progressSlider: {
-        width: '100%',
+        width: '80%',
         height: 40,
-        marginVertical: 10,
     },
     timeContainer: {
-        width: '100%',
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 20,
+        width: '80%',
     },
     timeText: {
-        fontSize: 14,
-        color: '#666',
+        color: '#FFF',
     },
     controlButtons: {
         flexDirection: 'row',
         justifyContent: 'space-around',
-        width: '100%',
-        marginBottom: 30,
+        width: '60%',
+        marginTop: 20,
     },
-    playPauseButton: {
-        backgroundColor: '#1DB954',
-        padding: 15,
-        borderRadius: 50,
-        elevation: 3,
-    },
-    volumeContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        width: '100%',
-        marginBottom: 30,
-    },
-    volumeIcon: {
-        marginRight: 10,
+    controlButton: {
+        padding: 10,
     },
     volumeSlider: {
-        flex: 1,
+        width: '80%',
         height: 40,
+        marginTop: 20,
     },
 });
 
 export default MusicPlayer;
+
