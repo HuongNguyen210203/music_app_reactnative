@@ -40,10 +40,10 @@ function InsideTabNavigator() {
                     let iconName;
                     if (route.name === 'List') {
                         iconName = 'list';
+                    }else if (route.name === 'MusicPlayer') {
+                        iconName = 'play-circle';
                     } else if (route.name === 'Details') {
                         iconName = 'music';
-                    } else if (route.name === 'MusicPlayer') {
-                        iconName = 'play-circle';
                     }
                     return <Icon name={iconName} size={size} color={color} />;
                 },
@@ -53,8 +53,8 @@ function InsideTabNavigator() {
             })}
         >
             <Tab.Screen name="List" component={List} />
-            <Tab.Screen name="Details" component={Details} />
             <Tab.Screen name="MusicPlayer" component={MusicPlayer} />
+            <Tab.Screen name="Details" component={Details} />
         </Tab.Navigator>
     );
 }
@@ -104,3 +104,4 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
 });
+
