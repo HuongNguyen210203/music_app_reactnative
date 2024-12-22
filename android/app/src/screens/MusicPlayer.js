@@ -1,3 +1,5 @@
+
+
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { useRoute } from '@react-navigation/native';
@@ -51,9 +53,11 @@ const MusicPlayer = ({ navigation }) => {
                 startPositionTracking((position, totalDuration) => {
                     setCurrentPosition(position);
                     if (totalDuration > 0) setDuration(totalDuration);
+                    // Automatically go to next song when current song finishes
+                    if (position >= totalDuration - 1) {
+                        handleNext();
+                    }
                 });
-
-
 
                 startRotation();
             } catch (error) {
@@ -69,8 +73,6 @@ const MusicPlayer = ({ navigation }) => {
             stopRotation();
         };
     }, [audioUrl, id]);
-
-
 
     const handlePlayPause = () => {
         if (isPlaying) {
@@ -99,13 +101,10 @@ const MusicPlayer = ({ navigation }) => {
         };
 
         try {
-            // Check again before liking to ensure up-to-date data
             const isLiked = await musicService.checkIfLiked(currentSongId, uid);
-            console.log(`Is song liked before liking attempt: ${isLiked}`);
-
             if (!isLiked) {
                 await musicService.likeCurrentSong(uid, song);
-                setUserLiked(true); // Update state to reflect the liked status
+                setUserLiked(true);
                 console.log("Song liked successfully!");
             } else {
                 console.log("Song is already liked. Skipping.");
@@ -119,13 +118,13 @@ const MusicPlayer = ({ navigation }) => {
         try {
             const nextSong = await musicService.playNext();
             if (nextSong) {
-                setUserLiked(false); // Ensure we reset userLiked state
+                setUserLiked(false);
                 updateSong(nextSong);
 
                 if (currentUser) {
                     const liked = await musicService.checkIfLiked(nextSong.id, currentUser.uid);
                     console.log(`Next song liked status: ${liked}`);
-                    setUserLiked(liked); // Correctly set liked status
+                    setUserLiked(liked);
                 }
             }
         } catch (error) {
@@ -137,20 +136,19 @@ const MusicPlayer = ({ navigation }) => {
         try {
             const previousSong = await musicService.playPrevious();
             if (previousSong) {
-                setUserLiked(false); // Ensure we reset userLiked state
+                setUserLiked(false);
                 updateSong(previousSong);
 
                 if (currentUser) {
                     const liked = await musicService.checkIfLiked(previousSong.id, currentUser.uid);
                     console.log(`Previous song liked status: ${liked}`);
-                    setUserLiked(liked); // Correctly set liked status
+                    setUserLiked(liked);
                 }
             }
         } catch (error) {
             console.error("Error navigating to previous song:", error);
         }
     };
-
 
     const updateSong = (song) => {
         if (!song || !song.mp3) {
@@ -302,4 +300,3 @@ const styles = StyleSheet.create({
 });
 
 export default MusicPlayer;
-
