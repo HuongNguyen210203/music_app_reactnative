@@ -1,12 +1,10 @@
-
-
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, TouchableOpacity } from 'react-native';
 import { FIREBASE_DB } from '../../../FirebaseConfig';
-import { getAuth } from "firebase/auth";
+import { getAuth, signOut } from "firebase/auth";
 import { doc, onSnapshot, getDoc } from "firebase/firestore";
 import { useNavigation } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/FontAwesome';
+import Icon from 'react-native-vector-icons/FontAwesome5';
 
 const Details = () => {
     const [loading, setLoading] = useState(true);
@@ -17,7 +15,6 @@ const Details = () => {
     const navigation = useNavigation(); // Navigation object
 
     useEffect(() => {
-        // If no current user is logged in, stop loading
         if (!currentUser) {
             setLoading(false);
             return;
@@ -27,53 +24,63 @@ const Details = () => {
 
         // Fetch the user information (username) from Firestore
         const fetchUserName = async () => {
-            const userRef = doc(FIREBASE_DB, 'users', uid); // Assuming 'users' is the collection storing user data
-            const userDoc = await getDoc(userRef);
+            try {
+                const userRef = doc(FIREBASE_DB, 'users', uid);
+                const userDoc = await getDoc(userRef);
 
-            if (userDoc.exists()) {
-                const userData = userDoc.data();
-                setUserName(userData.username || 'No Username');
-            } else {
-                setUserName('No Username');
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    setUserName(userData.username || 'No Username');
+                } else {
+                    setUserName('No Username');
+                }
+            } catch (error) {
+                console.error('Error fetching user data: ', error);
+                setUserName('Error fetching username');
             }
         };
 
-        fetchUserName(); // Call the function to fetch the user data
+        fetchUserName();
 
-        // Create a reference to the `Favorite-Song` document for this user
+        // Real-time listener for favorite songs
         const favoriteSongsRef = doc(FIREBASE_DB, 'Favorite-Song', uid);
 
         const unsubscribe = onSnapshot(favoriteSongsRef, async (docSnapshot) => {
-            if (docSnapshot.exists()) {
-                const data = docSnapshot.data();
-                const likedSongsArray = data?.songs || [];
-
-                if (likedSongsArray.length > 0) {
-                    // Fetch song details for each liked song
-                    const songs = likedSongsArray.map(song => {
-                        return {
-                            id: song.id,
-                            title: song.title,
-                            artist: song.artist,
-                            image: song.imageUrl,
-                            audioUrl: song.audioUrl,
-                        };
-                    });
-
+            try {
+                if (docSnapshot.exists()) {
+                    const data = docSnapshot.data();
+                    const likedSongsArray = data?.songs || [];
+                    const songs = likedSongsArray.map(song => ({
+                        id: song.id,
+                        title: song.title,
+                        artist: song.artist,
+                        image: song.imageUrl,
+                        audioUrl: song.audioUrl,
+                    }));
                     setLikedSongs(songs);
                 } else {
-                    setLikedSongs([]); // No liked songs found
+                    setLikedSongs([]);
                 }
-            } else {
-                setLikedSongs([]); // No document found for the user
+                setLoading(false);
+            } catch (error) {
+                console.error('Error fetching favorite songs: ', error);
+                setLikedSongs([]);
+                setLoading(false);
             }
-
-            setLoading(false); // End loading after data is fetched
         });
 
-        // Cleanup function to unsubscribe from the listener when the component unmounts
-        return () => unsubscribe();
+        return () => unsubscribe(); // Cleanup on component unmount
     }, [currentUser]);
+
+    // Log out function
+    const handleLogOut = async () => {
+        try {
+            await signOut(auth);
+            navigation.navigate('SignIn');
+        } catch (error) {
+            console.error('Error logging out: ', error.message);
+        }
+    };
 
     if (loading) {
         return (
@@ -85,10 +92,20 @@ const Details = () => {
 
     return (
         <ScrollView style={styles.container}>
+            {/* Back Button */}
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                <Icon name="arrow-left" size={24} color="#FFA500" />
+            </TouchableOpacity>
+
+            {/* Log out Button */}
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogOut}>
+                <Icon name="sign-out-alt" size={24} color="#FFA500" />
+            </TouchableOpacity>
+
             {/* Profile Section */}
             <View style={styles.profileContainer}>
                 <Image
-                    source={require('../assets/images/welcomeimage.png')} // Static welcome image
+                    source={require('../assets/images/welcomeimage.png')}
                     style={[styles.welcomeImage, { opacity: 0.8 }]}
                     resizeMode="cover"
                 />
@@ -97,14 +114,11 @@ const Details = () => {
 
             {/* Liked Songs Section */}
             <View style={styles.historyContainer}>
-                <Text style={styles.historyTitle}>Your Liked Songs</Text>
+                <Text style={styles.historyTitle}>Favorite Songs</Text>
                 {likedSongs.length > 0 ? (
                     likedSongs.map((song) => (
                         <View key={song.id} style={styles.songCard}>
-                            <Image
-                                source={{ uri: song.image }} // Display song image
-                                style={styles.songImage}
-                            />
+                            <Image source={{ uri: song.image }} style={styles.songImage} />
                             <View style={styles.songInfo}>
                                 <Text style={styles.songTitle}>{song.title}</Text>
                                 <Text style={styles.songArtist}>{song.artist}</Text>
@@ -138,13 +152,32 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#212121', // Dark background
     },
+    backButton: {
+        position: 'absolute',
+        top: 30,
+        left: 10,
+        zIndex: 1,
+        padding: 10,
+    },
+    logoutButton: {
+        position: 'absolute',
+        top: 30,
+        right: 10,
+        zIndex: 1,
+        padding: 10,
+    },
     profileContainer: {
         alignItems: 'center',
-        marginVertical: 20,
+        marginTop: 80, // Adjusted to add space below back button
     },
     welcomeImage: {
-        width: '100%',
-        height: 200,
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        marginBottom: 20,
+        borderColor: '#FFA500',
+        borderWidth: 2,
+        alignSelf: 'center',
     },
     userName: {
         fontSize: 24,
@@ -158,41 +191,48 @@ const styles = StyleSheet.create({
     },
     historyTitle: {
         fontSize: 22,
-        color: '#fff',
+        color: '#FFA500',
         marginBottom: 10,
         fontWeight: 'bold',
+        marginLeft: 20, // Adjusted to align with song cards
     },
     songCard: {
         backgroundColor: '#333',
         marginBottom: 15,
         borderRadius: 10,
         flexDirection: 'row',
-        padding: 10,
+        padding: 8, // Reduced padding
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'flex-start', // Adjusted to prevent overflow
+        width: '90%', // Reduce width of the card
+        maxWidth: '100%', // Ensure content doesn't overflow
+        marginHorizontal: '5%', // Center the card
     },
     songImage: {
-        width: 60,
-        height: 60,
-        borderRadius: 10,
+        width: 40, // Reduced width of the song image
+        height: 40, // Reduced height of the song image
+        borderRadius: 10, // Rounded corners for song image
         marginRight: 10,
     },
     songInfo: {
         flex: 1,
+        flexDirection: 'column', // Stack text vertically if needed
+        justifyContent: 'center',
     },
     songTitle: {
-        fontSize: 18,
+        fontSize: 16, // Reduced font size
         color: '#fff',
         fontWeight: 'bold',
+        flexWrap: 'wrap', // Allow text to wrap
     },
     songArtist: {
-        fontSize: 14,
+        fontSize: 12, // Reduced font size
         color: '#bbb',
+        flexWrap: 'wrap', // Allow text to wrap
     },
     playButton: {
         padding: 5,
         borderRadius: 100,
-
     },
     noSongsText: {
         fontSize: 18,
@@ -201,5 +241,6 @@ const styles = StyleSheet.create({
         marginTop: 20,
     },
 });
+
 
 export default Details;

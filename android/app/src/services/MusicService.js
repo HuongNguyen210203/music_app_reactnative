@@ -5,12 +5,14 @@ import {
 import { ref, get, child } from "firebase/database";
 import { FIREBASE_DB, FIREBASE_DATABASE } from "../../../FirebaseConfig";
 import Sound from 'react-native-sound';
+import { getAuth } from "firebase/auth";
+
 
 let sound = null;
-let dataQueue = []; // Store data locally in the service
-let currentSongIndex = 0; // Track the index of the currently playing song
+let dataQueue = [];
+let currentSongIndex = 0;
 let currentSongUrl = '';
-let lastPosition = 0; // Track the last position of the paused song
+let lastPosition = 0;
 
 export const getSoundInstance = () => sound;
 
@@ -28,19 +30,15 @@ const isValidAudioUrl = async (url, retries = 3) => {
     }
 };
 
-// Function to check if the pressed song is the same as the current song
 export const play = async (audioUrl) => {
     if (!audioUrl) return;
 
     if (!await isValidAudioUrl(audioUrl)) return;
 
-    // Check if the selected song is the same as the current song
     if (sound && currentSongUrl === audioUrl) {
-        // If it is the same, resume from the last position
         sound.play();
         sound.setCurrentTime(lastPosition);
     } else {
-        // If it's a different song, stop the current song and start the new one
         if (sound) {
             sound.stop();
             sound.release();
@@ -69,13 +67,12 @@ export const stop = () => {
     if (sound) {
         sound.stop();
         sound.release();
-        lastPosition = 0; // Reset the position
-        currentSongUrl = ''; // Reset the current song URL
+        lastPosition = 0;
+        currentSongUrl = '';
     }
 };
 
 
-//toggle like song
 export const toggleLikeSong = async (songId, navigation) => {
     const auth = getAuth();
     const currentUser = auth.currentUser;
@@ -85,44 +82,41 @@ export const toggleLikeSong = async (songId, navigation) => {
         return;
     }
 
+    const userId = currentUser.uid;
+    console.log("Authenticated user ID:", userId);
+
     try {
-        // Reference to the user's "Favorite-Song" document
-        const favoriteSongDocRef = doc(FIREBASE_DB, "Favorite-Song", currentUser.uid);
+
+        const favoriteSongDocRef = doc(FIREBASE_DB, "Favorite-Song", userId);
         const docSnapshot = await getDoc(favoriteSongDocRef);
 
-        // If the document doesn't exist, create it with an empty likedSongs array
+
         if (!docSnapshot.exists()) {
-            console.log("No Favorite-Song document found. Creating a new one.");
+            console.log("No Favorite-Song document found. Creating a new one for user:", userId);
             await setDoc(favoriteSongDocRef, {
-                likedSongs: []  // Initialize with an empty likedSongs array
+                songs: []
             });
+            console.log("Document created for user:", userId);
+        } else {
+            console.log("Favorite-Song document exists for user:", userId);
         }
 
-        // Fetch the current liked songs from the document
-        const updatedDocSnapshot = await getDoc(favoriteSongDocRef);
-        const likedSongs = updatedDocSnapshot.data().likedSongs || [];
 
-        // Check if the song is already liked
-        const songAlreadyLiked = likedSongs.some(song => song.songId === songId);
+        const updatedDocSnapshot = await getDoc(favoriteSongDocRef);
+        const songs = updatedDocSnapshot.data().songs || [];
+
+
+        const songAlreadyLiked = songs.some(song => song.songId === songId);
 
         if (songAlreadyLiked) {
-            // If the song is liked, navigate to the MusicPlayer with the liked status as true
-            console.log("Song already liked. Navigating to MusicPlayer with liked=true...");
+            console.log("Song already liked. Removing from liked songs.");
 
-            navigation.navigate('MusicPlayer', {
-                songId,
-                liked: true,  // Full heart, song is liked
+            await updateDoc(favoriteSongDocRef, {
+                songs: songs.filter(song => song.songId !== songId)
             });
         } else {
-            // If the song is not liked, navigate with liked status as false and add it to liked songs
-            console.log("Song not liked. Navigating to MusicPlayer with liked=false...");
+            console.log("Song not liked. Adding to liked songs.");
 
-            navigation.navigate('MusicPlayer', {
-                songId,
-                liked: false,  // Empty heart, song is not liked
-            });
-
-            // Fetch song data from "music" collection
             const songDocRef = doc(FIREBASE_DB, "music", songId);
             const songDocSnapshot = await getDoc(songDocRef);
             if (!songDocSnapshot.exists()) {
@@ -130,18 +124,24 @@ export const toggleLikeSong = async (songId, navigation) => {
                 return;
             }
 
-            // Get song data
+
             const songData = songDocSnapshot.data();
             const { title = "Unknown Title", imageUrl = null } = songData;
 
-            // Add song to the liked songs array in the user's Favorite-Song document
+            // Add song to the songs array in the user's Favorite-Song document
             await updateDoc(favoriteSongDocRef, {
-                likedSongs: arrayUnion({ songId, title, imageUrl })
+                songs: arrayUnion({ songId, title, imageUrl })
             });
 
-            // Optionally, update the heart icon in the UI
             console.log("Song added to liked songs.");
         }
+
+        // Navigate to MusicPlayer (for example)
+        navigation.navigate('MusicPlayer', {
+            songId,
+            liked: !songAlreadyLiked,  // Indicating the song's like status
+        });
+
     } catch (error) {
         console.error("Error checking or updating liked status:", error);
     }
@@ -219,10 +219,10 @@ export const playPrevious = async () => {
     const previousSong = dataQueue[currentSongIndex];
 
     if (previousSong && previousSong.mp3) {
-        stop();  // Stop the current song
-        await play(previousSong.mp3);  // Play the previous song
+        stop();
+        await play(previousSong.mp3);
 
-        return previousSong;  // Return song details without liking it
+        return previousSong;
     }
     return null;
 };
@@ -232,7 +232,7 @@ export const shuffleQueue = () => {
         const j = Math.floor(Math.random() * (i + 1));
         [dataQueue[i], dataQueue[j]] = [dataQueue[j], dataQueue[i]];
     }
-    currentSongIndex = 0; // Reset to the start of the shuffled queue
+    currentSongIndex = 0;
 };
 
 
@@ -266,10 +266,10 @@ export const startPositionTracking = (onUpdate) => {
 
 export const seekTo = (position) => {
     if (sound) sound.setCurrentTime(position);
-    lastPosition = position; // update the last position manually when seeking
+    lastPosition = position;
 };
 
-//get the details of the song
+
 export const getSongDetails = async (songId, uid) => {
     if (!songId) {
         console.error("Song ID is required to fetch song details.");
@@ -318,7 +318,7 @@ export const formatTime = (seconds) => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 };
 
-// Function to handle liking the current song (does not remove)
+
 export const likeCurrentSong = async (userId, song) => {
     try {
         if (!userId || !song || !song.id) return;
@@ -331,7 +331,7 @@ export const likeCurrentSong = async (userId, song) => {
             userFavorites = docSnap.data().songs || [];
         }
 
-        // Check if the song is already liked
+
         const isAlreadyLiked = userFavorites.some(favSong => favSong.id === song.id);
 
         if (isAlreadyLiked) {
@@ -339,9 +339,9 @@ export const likeCurrentSong = async (userId, song) => {
             return;
         }
 
-        // Add the song to the user's favorites
+
         await updateDoc(docRef, {
-            songs: arrayUnion(song)  // Add the song object to the list
+            songs: arrayUnion(song)
         });
 
         console.log("Song liked successfully!");
@@ -361,7 +361,7 @@ export const checkIfLiked = async (songId, userId) => {
         const docRef = doc(FIREBASE_DB, "Favorite-Song", userId);
         const docSnap = await getDoc(docRef);
 
-        // If the document doesn't exist, the song is definitely not liked
+
         if (!docSnap.exists()) {
             console.log(`No Favorite-Song document found for user ${userId}.`);
             return false;
@@ -386,34 +386,33 @@ export const checkIfLiked = async (songId, userId) => {
 export const checkSongLikedStatus = async (uid, songId, songDetails) => {
     if (!uid || !songId) {
         console.error("User UID and song ID are required to check liked status.");
-        return false; // Default to false if missing required info
+        return false;
     }
 
     try {
-        // Reference to the user's liked songs in the "Favorite-Song" collection
+
         const favoriteSongDocRef = doc(FIREBASE_DB, "Favorite-Song", uid);
         const docSnapshot = await getDoc(favoriteSongDocRef);
 
         if (docSnapshot.exists()) {
-            // Get the array of liked songs
+
             const likedSongs = docSnapshot.data().likedSongs || [];
 
-            // Check if the song is already liked
+
             const isLiked = likedSongs.some(song => song.songId === songId);
 
             if (isLiked) {
-                return true; // Song is already liked
+                return true;
             } else {
-                // If song is not liked, add it to the liked songs array
+
                 await updateDoc(favoriteSongDocRef, {
-                    likedSongs: arrayUnion({ songId, ...songDetails }) // Add the song to the liked songs array
+                    likedSongs: arrayUnion({ songId, ...songDetails })
                 });
-                return true; // Return true after adding
+                return true;
             }
         } else {
-            // If the document does not exist, create it with the song liked
             await updateDoc(favoriteSongDocRef, {
-                likedSongs: arrayUnion({ songId, ...songDetails }) // Create new liked songs array
+                likedSongs: arrayUnion({ songId, ...songDetails })
             });
             return true;
         }

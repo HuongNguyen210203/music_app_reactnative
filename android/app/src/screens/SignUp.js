@@ -1,88 +1,9 @@
-// import React, { useState } from 'react';
-// import { View, TextInput, Button, Text, StyleSheet, Alert } from 'react-native';
-// import { FIREBASE_AUTH } from '../../../FirebaseConfig';
-// import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
-//
-// const SignUp = ({ navigation }) => {
-//     const [email, setEmail] = useState('');
-//     const [password, setPassword] = useState('');
-//     const auth = FIREBASE_AUTH;
-//
-//     const signUp = async () => {
-//         try {
-//             const response = await createUserWithEmailAndPassword(auth, email, password);
-//             await sendEmailVerification(response.user);
-//             // Alert.alert('Check your email for verification');
-//             navigation.navigate('SignIn'); // Navigate back to SignIn screen
-//         } catch (error) {
-//             // Alert.alert('Sign up failed', error.message);
-//         }
-//     };
-//
-//     return (
-//         <View style={styles.container}>
-//             <Text style={styles.header}>Create an account</Text>
-//             <TextInput
-//                 value={email}
-//                 style={styles.input}
-//                 placeholder="Email"
-//                 autoCapitalize="none"
-//                 onChangeText={setEmail}
-//             />
-//             <TextInput
-//                 value={password}
-//                 style={styles.input}
-//                 placeholder="Password"
-//                 secureTextEntry={true}
-//                 onChangeText={setPassword}
-//             />
-//             <Button title="Sign up" onPress={signUp} />
-//
-//             <Text
-//                 style={styles.signupText}
-//                 onPress={() => navigation.navigate('SignIn')} // Navigate to SignIn screen
-//             >
-//                 Already have an account? Sign in here
-//             </Text>
-//         </View>
-//     );
-// };
-//
-// const styles = StyleSheet.create({
-//     container: {
-//         flex: 1,
-//         justifyContent: 'center',
-//         padding: 16,
-//     },
-//     header: {
-//         fontSize: 24,
-//         marginBottom: 20,
-//         textAlign: 'center',
-//     },
-//     input: {
-//         height: 40,
-//         borderColor: '#ccc',
-//         borderWidth: 1,
-//         marginBottom: 12,
-//         paddingHorizontal: 8,
-//     },
-//     signupText: {
-//         marginTop: 15,
-//         color: '#FFA500',
-//         textAlign: 'center',
-//     },
-// });
-//
-// export default SignUp;
-
-
-
-
 import React, { useState } from 'react';
 import { View, TextInput, Text, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
-import { FIREBASE_AUTH } from '../../../FirebaseConfig';
-import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import Icon from 'react-native-vector-icons/FontAwesome5'; // FontAwesome icons
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import Icon from 'react-native-vector-icons/FontAwesome5';
+import { FIREBASE_AUTH, FIREBASE_DB } from '../../../FirebaseConfig';
 
 const SignUp = ({ navigation }) => {
     const [email, setEmail] = useState('');
@@ -93,29 +14,75 @@ const SignUp = ({ navigation }) => {
 
     const signUp = async () => {
         if (!email || !password || !username || !dateOfBirth) {
+            Alert.alert('Missing Information', 'Please fill in all the fields.');
             return;
         }
 
         setLoading(true);
         try {
-            // Create a new user with email and password
+            // Create user with email and password
             const userCredential = await createUserWithEmailAndPassword(FIREBASE_AUTH, email, password);
             const user = userCredential.user;
 
-            // Log the user out immediately after account creation
-            await signOut(FIREBASE_AUTH);
+            // Save additional user data to Firestore
+            const userRef = doc(FIREBASE_DB, 'users', user.uid); // Reference to user document
+            await setDoc(userRef, {
+                username,
+                email,
+                dateOfBirth,
+                createdAt: new Date().toISOString(),
+            });
 
-            // Notify the user that they are logged out and need to sign in
-            Alert.alert('Account Created', 'You have been logged out. Please sign in to continue.');
+            // Create an empty folder in "Favorite-Songs" for the user
+            const favoriteSongsRef = doc(FIREBASE_DB, 'Favorite-Song', user.uid); // Reference to the user's favorite songs folder
+            await setDoc(favoriteSongsRef, {
+                songs: [], // Initialize with an empty array for the user's favorite songs
+            });
 
+            // Log the user out immediately after successful sign-up
+            await FIREBASE_AUTH.signOut();
+
+            // Inform the user that sign-up is successful and they are logged out
+            Alert.alert('Success', 'Your account has been created. Please log in to continue.');
+
+            // Navigate to the Sign-In screen for the user to log in again
+            navigation.navigate('SignIn');
         } catch (error) {
-            console.error(error.message);
-            // Handle any errors (e.g., show an alert to the user)
-            Alert.alert('Sign Up Failed', error.message);
+            console.error('Error during sign-up:', error.message);
+            Alert.alert('Sign-Up Failed', error.message);
         } finally {
             setLoading(false);
         }
     };
+    //     try {
+    //         // Create user with email and password
+    //         const userCredential = await createUserWithEmailAndPassword(FIREBASE_AUTH, email, password);
+    //         const user = userCredential.user;
+    //
+    //         // Save additional user data to Firestore
+    //         const userRef = doc(FIREBASE_DB, 'users', user.uid); // Reference to user document
+    //         await setDoc(userRef, {
+    //             username,
+    //             email,
+    //             dateOfBirth,
+    //             createdAt: new Date().toISOString(),
+    //         });
+    //
+    //         // Create an empty folder in "Favorite-Songs" for the user
+    //         const favoriteSongsRef = doc(FIREBASE_DB, 'Favorite-Song', user.uid); // Reference to the user's favorite songs folder
+    //         await setDoc(favoriteSongsRef, {
+    //             songs: [], // Initialize with an empty array for the user's favorite songs
+    //         });
+    //
+    //         Alert.alert('Success', 'Your account has been created.');
+    //         navigation.navigate('SignIn');
+    //     } catch (error) {
+    //         console.error('Error during sign-up:', error.message);
+    //         Alert.alert('Sign-Up Failed', error.message);
+    //     } finally {
+    //         setLoading(false);
+    //     }
+    // };
 
     return (
         <View style={styles.container}>
@@ -123,23 +90,21 @@ const SignUp = ({ navigation }) => {
                 <Icon name="arrow-left" size={30} color="#FFA500" />
             </TouchableOpacity>
 
-            {/* Welcome Image */}
             <Image
                 source={require('../assets/images/welcomeimage.png')}
-                style={[styles.welcomeImage, { opacity: 0.8 }]}
+                style={styles.welcomeImage}
                 resizeMode="cover"
             />
 
-            <Text style={styles.header}>Sign Up</Text>
+            <Text style={styles.header}>Sign up</Text>
 
-            {/* Form Inputs with Labels */}
             <View style={styles.inputContainer}>
                 <Text style={styles.label}>Username</Text>
                 <TextInput
                     value={username}
                     style={styles.input}
                     placeholder="Enter your username"
-                    placeholderTextColor="#aaa"
+                    placeholderTextColor="#F2F2F2"
                     onChangeText={setUsername}
                 />
 
@@ -148,7 +113,7 @@ const SignUp = ({ navigation }) => {
                     value={dateOfBirth}
                     style={styles.input}
                     placeholder="Enter your date of birth"
-                    placeholderTextColor="#aaa"
+                    placeholderTextColor="#F2F2F2"
                     onChangeText={setDateOfBirth}
                 />
 
@@ -157,7 +122,7 @@ const SignUp = ({ navigation }) => {
                     value={email}
                     style={styles.input}
                     placeholder="Enter your email"
-                    placeholderTextColor="#aaa"
+                    placeholderTextColor="#F2F2F2"
                     autoCapitalize="none"
                     onChangeText={setEmail}
                 />
@@ -168,21 +133,19 @@ const SignUp = ({ navigation }) => {
                     style={styles.input}
                     placeholder="Enter your password"
                     secureTextEntry
-                    placeholderTextColor="#aaa"
+                    placeholderTextColor="#F2F2F2"
                     onChangeText={setPassword}
                 />
             </View>
 
-            {/* Sign Up Button */}
             <TouchableOpacity
-                style={styles.button}
+                style={[styles.button, loading && styles.buttonDisabled]}
                 onPress={signUp}
                 disabled={loading}
             >
                 <Text style={styles.buttonText}>{loading ? 'Loading...' : 'Sign Up'}</Text>
             </TouchableOpacity>
 
-            {/* Navigate to Sign In */}
             <Text style={styles.signupText}>
                 Already have an account?
                 <Text
@@ -200,28 +163,29 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         justifyContent: 'center',
-        padding: 16,
-        backgroundColor: '#1E2019',  // Dark background color
+        padding: 20,
+        backgroundColor: '#1E2019',
     },
     backButton: {
         position: 'absolute',
         top: 40,
-        left: 10,
+        left: 25,
         zIndex: 1,
     },
     welcomeImage: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
+        width: 140,
+        height: 140,
+        borderRadius: 70,
         marginBottom: 20,
         borderColor: '#FFA500',
-        borderWidth: 2,
+        borderWidth: 3,
         alignSelf: 'center',
     },
     header: {
-        fontSize: 26,
-        marginBottom: 20,
-        color: '#FFA500',
+        fontSize: 28,
+        marginBottom: 15,
+        color: '#F2F2F2',
+        fontWeight: 'bold',
         textAlign: 'center',
     },
     inputContainer: {
@@ -230,31 +194,38 @@ const styles = StyleSheet.create({
     label: {
         color: '#fff',
         fontSize: 16,
-        marginBottom: 5,
+        fontWeight: 'bold',
+        marginBottom: 8,
     },
     input: {
-        height: 50,
+        width: '100%',
+        height: 55,
         borderColor: '#FFA500',
         borderWidth: 1,
         marginBottom: 12,
         paddingHorizontal: 12,
-        color: '#fff',
-        backgroundColor: '#333',
-        borderRadius: 8,
+        borderRadius: 16,
+        fontSize: 15,
+        backgroundColor: '#212121',
+        color: '#F2F2F2',
     },
     button: {
         backgroundColor: '#FFA500',
-        padding: 10,
+        paddingVertical: 14,
         borderRadius: 16,
         alignItems: 'center',
+        marginBottom: 10,
+    },
+    buttonDisabled: {
+        backgroundColor: '#FF8C00',
     },
     buttonText: {
         color: '#fff',
         fontSize: 18,
+        fontWeight: 'bold',
     },
     signupText: {
-        marginTop: 10,
-        fontSize: 14,
+        fontSize: 16,
         textAlign: 'center',
         color: '#fff',
     },
@@ -266,5 +237,4 @@ const styles = StyleSheet.create({
 });
 
 export default SignUp;
-
 
