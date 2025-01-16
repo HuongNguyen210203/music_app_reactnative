@@ -1,3 +1,219 @@
+// import React, { useEffect, useState } from 'react';
+// import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, Modal, Button, Image } from 'react-native';
+// import { FIREBASE_AUTH } from "../../../FirebaseConfig";
+// import { signOut } from 'firebase/auth';
+// import Icon from 'react-native-vector-icons/FontAwesome5';
+// import Icon2 from 'react-native-vector-icons/MaterialIcons';
+// import MusicService from '../services/MusicService';
+//
+//
+// const List = ({ navigation }) => {
+//     const [modalVisible, setModalVisible] = useState(false);
+//     const [songs, setSongs] = useState([]);
+//     const [searchQuery, setSearchQuery] = useState('');
+//
+//     useEffect(() => {
+//         const loadData = async () => {
+//             try {
+//                 const fetchedSongs = await MusicService.fetchCollectionData();
+//                 setSongs(fetchedSongs);
+//                 console.log("Loaded songs:", fetchedSongs);
+//             } catch (error) {
+//                 console.error("Error loading songs:", error);
+//             }
+//         };
+//
+//         loadData();
+//     }, []);
+//
+//
+//     const handleSongPress = (song) => {
+//         MusicService.stop(); // Stop any currently playing song
+//         MusicService.play(song.mp3);
+//         navigation.navigate('MusicPlayer', {
+//             title: song.title,
+//             audioUrl: song.mp3,
+//             imageUrl: song.image,
+//             artist: song.artist,
+//             singer: song.singer,
+//             id: song.id,
+//             playlist: songs, // Pass the entire songs list// Play the selected song
+//         });
+//
+//     };
+//
+//
+//     const handleLogOut = async () => {
+//         try {
+//             await signOut(FIREBASE_AUTH);
+//             navigation.replace('SignIn');
+//         } catch (error) {
+//             console.error('Error logging out:', error.message);
+//         }
+//     };
+//
+//     const normalizeString = (str) => {
+//         return str ? str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() : '';
+//     };
+//
+//     const truncateToWords = (text, wordLimit) => {
+//         const words = text.split(' ');
+//         return words.length > wordLimit ? words.slice(0, wordLimit).join(' ') + '...' : text;
+//     };
+//
+//     const filteredSongs = songs.filter(song => {
+//         const title = song.title || '';
+//         const artist = song.artist || '';
+//         const singer = song.singer || '';
+//         return normalizeString(title).includes(normalizeString(searchQuery)) ||
+//             normalizeString(artist).includes(normalizeString(searchQuery));
+//     });
+//
+//     const groupedSongs = filteredSongs.reduce((acc, song) => {
+//         const category = song.category || 'Other';
+//         if (!acc[category]) acc[category] = [];
+//         acc[category].push(song);
+//         return acc;
+//     }, {});
+//
+//     return (
+//         <View style={styles.container}>
+//             <View style={styles.searchContainer}>
+//                 <TextInput
+//                     style={styles.searchInput}
+//                     placeholder="Search music or artist"
+//                     value={searchQuery}
+//                     onChangeText={setSearchQuery}
+//                 />
+//                 <TouchableOpacity style={styles.menuButton} onPress={() => setModalVisible(true)}>
+//                     <Icon2 name="menu" size={25} color="gray" />
+//                 </TouchableOpacity>
+//             </View>
+//
+//             <Modal
+//                 visible={modalVisible}
+//                 transparent={true}
+//                 animationType="slide"
+//                 onRequestClose={() => setModalVisible(false)}
+//             >
+//                 <View style={styles.modal}>
+//                     <TouchableOpacity style={styles.closeButton} onPress={() => setModalVisible(false)}>
+//                         <Icon name="times" size={30} color="#FFA500" />
+//                     </TouchableOpacity>
+//                     <Button title="Log Out" onPress={handleLogOut} />
+//                 </View>
+//             </Modal>
+//
+//             <ScrollView style={styles.scrollView}>
+//                 {Object.keys(groupedSongs).map((category) => (
+//                     <View key={category} style={styles.categoryContainer}>
+//                         <Text style={styles.categoryTitle}>{category}</Text>
+//                         {groupedSongs[category].map((song) => (
+//                             <TouchableOpacity key={song.id} style={styles.songContainer} onPress={() => handleSongPress(song)}>
+//                                 <Image source={{ uri: song.image }} style={styles.songImage} />
+//                                 <View style={styles.songInfo}>
+//                                     <Text style={styles.songTitle}>{truncateToWords(song.title, 5)}</Text>
+//                                     {song.artist === song.singer ? (
+//                                         <Text style={styles.songArtist}>{song.artist}</Text>
+//                                     ) : (
+//                                         <>
+//                                             <Text style={styles.songArtist}>{song.artist}</Text>
+//                                             <Text style={styles.songArtist}>{song.singer}</Text>
+//                                         </>
+//                                     )}
+//                                 </View>
+//                             </TouchableOpacity>
+//                         ))}
+//                     </View>
+//                 ))}
+//             </ScrollView>
+//         </View>
+//     );
+// };const styles = StyleSheet.create({
+//     container: {
+//         flex: 1,
+//         backgroundColor: '#121212',
+//         padding: 20,
+//     },
+//     searchContainer: {
+//         flexDirection: 'row',
+//         alignItems: 'center',
+//         backgroundColor: '#1F1F1F',
+//         borderRadius: 8,
+//         padding: 10,
+//         marginBottom: 15,
+//         shadowColor: '#000',
+//         shadowOffset: { width: 0, height: 2 },
+//         shadowOpacity: 0.3,
+//         shadowRadius: 5,
+//         elevation: 4,
+//     },
+//     searchInput: {
+//         flex: 1,
+//         backgroundColor: '#888',
+//         color: '#FFF', // White color for the text inside the input
+//         fontColor: '#FFF',
+//         paddingVertical: 10,
+//         paddingHorizontal: 15,
+//         borderRadius: 5,
+//         fontSize: 16,
+//         placeholderTextColor: '#888', // Darker placeholder color
+//     },
+//     menuButton: {
+//         marginLeft: 10,
+//     },
+//     scrollView: {
+//         marginTop: 10,
+//     },
+//     categoryContainer: {
+//         marginBottom: 20,
+//     },
+//     categoryTitle: {
+//         fontSize: 18,
+//         fontWeight: 'bold',
+//         color: '#FFA500',
+//         marginBottom: 10,
+//         textShadowColor: 'rgba(0, 0, 0, 0.2)',
+//         textShadowOffset: { width: 1, height: 1 },
+//         textShadowRadius: 1,
+//     },
+//     songContainer: {
+//         flexDirection: 'row',
+//         alignItems: 'center',
+//         marginBottom: 12,
+//     },
+//     songImage: {
+//         width: 50,
+//         height: 50,
+//         borderRadius: 5,
+//     },
+//     songInfo: {
+//         marginLeft: 15,
+//     },
+//     songTitle: {
+//         color: '#fff',
+//         fontSize: 16,
+//         fontWeight: '500',
+//     },
+//     songArtist: {
+//         color: '#bbb',
+//         fontSize: 14,
+//     },
+//     modal: {
+//         flex: 1,
+//         justifyContent: 'center',
+//         alignItems: 'center',
+//         backgroundColor: 'rgba(0, 0, 0, 0.6)',
+//     },
+//     closeButton: {
+//         position: 'absolute',
+//         top: 20,
+//         right: 20,
+//     },
+// });
+//
+// export default List;
+
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, Modal, Button, Image, ActivityIndicator } from 'react-native';
 import { FIREBASE_AUTH } from "../../../FirebaseConfig";
@@ -31,7 +247,7 @@ const List = ({ navigation }) => {
     const handleSongPress = useCallback((song) => {
         try {
             MusicService.stop();
-            MusicService.play(song.mp3).then(r => console.log(r));
+            MusicService.play(song.mp3);
             navigation.navigate('MusicPlayer', {
                 title: song.title,
                 audioUrl: song.mp3,
@@ -68,7 +284,7 @@ const List = ({ navigation }) => {
         const title = song.title || '';
         const artist = song.artist || '';
         return normalizeString(title).includes(normalizeString(searchQuery)) ||
-            normalizeString(artist).includes(normalizeString(searchQuery));
+          normalizeString(artist).includes(normalizeString(searchQuery));
     });
 
     const groupedSongs = filteredSongs.reduce((acc, song) => {
@@ -79,77 +295,77 @@ const List = ({ navigation }) => {
     }, {});
 
     return (
-        <View style={styles.container}>
-            <View style={styles.searchContainer}>
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Search music or artist"
-                    placeholderTextColor="#888"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                />
-                <TouchableOpacity style={styles.menuButton} onPress={() => setModalVisible(true)}>
-                    <Icon2 name="menu" size={25} color="gray" />
-                </TouchableOpacity>
+      <View style={styles.container}>
+          <View style={styles.searchContainer}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search music or artist"
+                placeholderTextColor="#888"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              <TouchableOpacity style={styles.menuButton} onPress={() => setModalVisible(true)}>
+                  <Icon2 name="menu" size={25} color="gray" />
+              </TouchableOpacity>
+          </View>
+
+          <Modal
+            visible={modalVisible}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setModalVisible(false)}
+          >
+              <View style={styles.modalBackground}>
+                  <View style={styles.modalContent}>
+                      <Icon name="user-circle" size={80} color="#FFA500" />
+                      <Text style={styles.modalTitle}>Are you sure?</Text>
+                      <Text style={styles.modalDescription}>
+                          Logging out will end your current session. Do you want to continue?
+                      </Text>
+                      <View style={styles.modalButtons}>
+                          <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
+                              <Text style={styles.cancelButtonText}>Cancel</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity style={styles.confirmButton} onPress={handleLogOut}>
+                              <Text style={styles.confirmButtonText}>Log Out</Text>
+                          </TouchableOpacity>
+                      </View>
+                  </View>
+              </View>
+          </Modal>
+
+
+
+          {loading ? (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#FFA500" />
             </View>
-
-            <Modal
-                visible={modalVisible}
-                transparent={true}
-                animationType="slide"
-                onRequestClose={() => setModalVisible(false)}
-            >
-                <View style={styles.modalBackground}>
-                    <View style={styles.modalContent}>
-                        <Icon name="user-circle" size={80} color="#FFA500" />
-                        <Text style={styles.modalTitle}>Are you sure?</Text>
-                        <Text style={styles.modalDescription}>
-                            Logging out will end your current session. Do you want to continue?
-                        </Text>
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
-                                <Text style={styles.cancelButtonText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.confirmButton} onPress={handleLogOut}>
-                                <Text style={styles.confirmButtonText}>Log Out</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
-
-
-
-            {loading ? (
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#FFA500" />
-                </View>
-            ) : (
-                <ScrollView style={styles.scrollView}>
-                    {Object.keys(groupedSongs).map((category) => (
-                        <View key={category} style={styles.categoryContainer}>
-                            <Text style={styles.categoryTitle}>{category}</Text>
-                            {groupedSongs[category].map((song) => (
-                                <TouchableOpacity key={song.id} style={styles.songContainer} onPress={() => handleSongPress(song)}>
-                                    <Image source={{ uri: song.image }} style={styles.songImage} />
-                                    <View style={styles.songInfo}>
-                                        <Text style={styles.songTitle}>{truncateToWords(song.title, 5)}</Text>
-                                        {song.artist === song.singer ? (
-                                            <Text style={styles.songArtist}>{song.artist}</Text>
-                                        ) : (
-                                            <>
-                                                <Text style={styles.songArtist}>{song.artist}</Text>
-                                                <Text style={styles.songArtist}>{song.singer}</Text>
-                                            </>
-                                        )}
-                                    </View>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    ))}
-                </ScrollView>
-            )}
-        </View>
+          ) : (
+            <ScrollView style={styles.scrollView}>
+                {Object.keys(groupedSongs).map((category) => (
+                  <View key={category} style={styles.categoryContainer}>
+                      <Text style={styles.categoryTitle}>{category}</Text>
+                      {groupedSongs[category].map((song) => (
+                        <TouchableOpacity key={song.id} style={styles.songContainer} onPress={() => handleSongPress(song)}>
+                            <Image source={{ uri: song.image }} style={styles.songImage} />
+                            <View style={styles.songInfo}>
+                                <Text style={styles.songTitle}>{truncateToWords(song.title, 5)}</Text>
+                                {song.artist === song.singer ? (
+                                  <Text style={styles.songArtist}>{song.artist}</Text>
+                                ) : (
+                                  <>
+                                      <Text style={styles.songArtist}>{song.artist}</Text>
+                                      <Text style={styles.songArtist}>{song.singer}</Text>
+                                  </>
+                                )}
+                            </View>
+                        </TouchableOpacity>
+                      ))}
+                  </View>
+                ))}
+            </ScrollView>
+          )}
+      </View>
     );
 };
 

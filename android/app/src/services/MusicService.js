@@ -1,4 +1,3 @@
-
 import {
     collection, getDocs, doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove
 } from "firebase/firestore";
@@ -116,7 +115,6 @@ export const toggleLikeSong = async (songId, navigation) => {
             });
         } else {
             console.log("Song not liked. Adding to liked songs.");
-
             const songDocRef = doc(FIREBASE_DB, "music", songId);
             const songDocSnapshot = await getDoc(songDocRef);
             if (!songDocSnapshot.exists()) {
@@ -130,13 +128,13 @@ export const toggleLikeSong = async (songId, navigation) => {
 
             // Add song to the songs array in the user's Favorite-Song document
             await updateDoc(favoriteSongDocRef, {
-                songs: arrayUnion({ songId, title, imageUrl })
+                songs: arrayUnion({ songId, title, imageUrl, audioUrl: songData.audioUrl})
             });
 
             console.log("Song added to liked songs.");
         }
 
-        // Navigate to MusicPlayer (for example)
+
         navigation.navigate('MusicPlayer', {
             songId,
             liked: !songAlreadyLiked,  // Indicating the song's like status
@@ -212,6 +210,11 @@ export const playNext = async () => {
     return null;
 };
 
+
+
+
+
+
 export const playPrevious = async () => {
     if (dataQueue.length === 0) return null;
 
@@ -268,6 +271,12 @@ export const seekTo = (position) => {
     if (sound) sound.setCurrentTime(position);
     lastPosition = position;
 };
+export const formatTime = (seconds) => {
+    if (!seconds || isNaN(seconds)) return '0:00'; // Handle edge cases
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+};
 
 
 export const getSongDetails = async (songId, uid) => {
@@ -290,6 +299,8 @@ export const getSongDetails = async (songId, uid) => {
             songId: songDoc.id,
             title: songData.title || "Unknown Title",
             imageUrl: songData.imageUrl || null,
+
+            audioUrl: songData.audioUrl
         };
 
         // Check if the song is liked by the current user
@@ -311,12 +322,6 @@ export const getSongDetails = async (songId, uid) => {
     }
 };
 
-export const formatTime = (seconds) => {
-    if (!seconds || isNaN(seconds)) return '0:00'; // Handle edge cases
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-};
 
 
 export const likeCurrentSong = async (userId, song) => {
@@ -368,7 +373,7 @@ export const checkIfLiked = async (songId, userId) => {
         }
 
         const userFavorites = docSnap.data().songs || [];
-        console.log("User Favorites:", userFavorites);
+       // console.log("User Favorites:", userFavorites);
 
         // Check if the song ID exists in the favorites list
         const isLiked = userFavorites.some(song => song.id === songId);
@@ -448,5 +453,4 @@ export default {
     shuffleQueue,
     getQueue,
 };
-
 

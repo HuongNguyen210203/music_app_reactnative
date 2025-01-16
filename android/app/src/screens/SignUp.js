@@ -33,19 +33,16 @@ const SignUp = ({ navigation }) => {
                 createdAt: new Date().toISOString(),
             });
 
-            // Create an empty folder in "Favorite-Songs" for the user
+
             const favoriteSongsRef = doc(FIREBASE_DB, 'Favorite-Song', user.uid); // Reference to the user's favorite songs folder
             await setDoc(favoriteSongsRef, {
-                songs: [], // Initialize with an empty array for the user's favorite songs
+                songs: [],
             });
 
-            // Log the user out immediately after successful sign-up
             await FIREBASE_AUTH.signOut();
 
-            // Inform the user that sign-up is successful and they are logged out
             Alert.alert('Success', 'Your account has been created. Please log in to continue.');
 
-            // Navigate to the Sign-In screen for the user to log in again
             navigation.navigate('SignIn');
         } catch (error) {
             console.error('Error during sign-up:', error.message);
@@ -85,77 +82,77 @@ const SignUp = ({ navigation }) => {
     // };
 
     return (
-        <View style={styles.container}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                <Icon name="arrow-left" size={30} color="#FFA500" />
-            </TouchableOpacity>
+      <View style={styles.container}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+              <Icon name="arrow-left" size={30} color="#FFA500" />
+          </TouchableOpacity>
 
-            <Image
-                source={require('../assets/images/welcomeimage.png')}
-                style={styles.welcomeImage}
-                resizeMode="cover"
-            />
+          <Image
+            source={require('../assets/images/welcomeimage.png')}
+            style={styles.welcomeImage}
+            resizeMode="cover"
+          />
 
-            <Text style={styles.header}>Sign up</Text>
+          <Text style={styles.header}>Sign up</Text>
 
-            <View style={styles.inputContainer}>
-                <Text style={styles.label}>Username</Text>
-                <TextInput
-                    value={username}
-                    style={styles.input}
-                    placeholder="Enter your username"
-                    placeholderTextColor="#F2F2F2"
-                    onChangeText={setUsername}
-                />
+          <View style={styles.inputContainer}>
+              <Text style={styles.label}>Username</Text>
+              <TextInput
+                value={username}
+                style={styles.input}
+                placeholder="Enter your username"
+                placeholderTextColor="#F2F2F2"
+                onChangeText={setUsername}
+              />
 
-                <Text style={styles.label}>Date of Birth</Text>
-                <TextInput
-                    value={dateOfBirth}
-                    style={styles.input}
-                    placeholder="Enter your date of birth"
-                    placeholderTextColor="#F2F2F2"
-                    onChangeText={setDateOfBirth}
-                />
+              <Text style={styles.label}>Date of Birth</Text>
+              <TextInput
+                value={dateOfBirth}
+                style={styles.input}
+                placeholder="Enter your date of birth"
+                placeholderTextColor="#F2F2F2"
+                onChangeText={setDateOfBirth}
+              />
 
-                <Text style={styles.label}>Email</Text>
-                <TextInput
-                    value={email}
-                    style={styles.input}
-                    placeholder="Enter your email"
-                    placeholderTextColor="#F2F2F2"
-                    autoCapitalize="none"
-                    onChangeText={setEmail}
-                />
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                value={email}
+                style={styles.input}
+                placeholder="Enter your email"
+                placeholderTextColor="#F2F2F2"
+                autoCapitalize="none"
+                onChangeText={setEmail}
+              />
 
-                <Text style={styles.label}>Password</Text>
-                <TextInput
-                    value={password}
-                    style={styles.input}
-                    placeholder="Enter your password"
-                    secureTextEntry
-                    placeholderTextColor="#F2F2F2"
-                    onChangeText={setPassword}
-                />
-            </View>
+              <Text style={styles.label}>Password</Text>
+              <TextInput
+                value={password}
+                style={styles.input}
+                placeholder="Enter your password"
+                secureTextEntry
+                placeholderTextColor="#F2F2F2"
+                onChangeText={setPassword}
+              />
+          </View>
 
-            <TouchableOpacity
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={signUp}
-                disabled={loading}
-            >
-                <Text style={styles.buttonText}>{loading ? 'Loading...' : 'Sign Up'}</Text>
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={signUp}
+            disabled={loading}
+          >
+              <Text style={styles.buttonText}>{loading ? 'Loading...' : 'Sign Up'}</Text>
+          </TouchableOpacity>
 
-            <Text style={styles.signupText}>
-                Already have an account?
-                <Text
-                    style={styles.linkText}
-                    onPress={() => navigation.navigate('SignIn')}
-                >
-                    {' '}Sign in here
-                </Text>
-            </Text>
-        </View>
+          <Text style={styles.signupText}>
+              Already have an account?
+              <Text
+                style={styles.linkText}
+                onPress={() => navigation.navigate('SignIn')}
+              >
+                  {' '}Sign in here
+              </Text>
+          </Text>
+      </View>
     );
 };
 
@@ -237,4 +234,3 @@ const styles = StyleSheet.create({
 });
 
 export default SignUp;
-
